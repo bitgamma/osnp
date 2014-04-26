@@ -128,6 +128,8 @@ void osnp_initialize_frame(unsigned char fc_low, unsigned char fc_high, unsigned
 
   if (frame->src_pan) {
     memcpy(frame->src_pan, OSNP_PAN, 2);
+  } else if (frame->dst_pan && EXTRACT_FCPANCOMP(*frame->fc_low)) {
+    memcpy(frame->dst_pan, OSNP_PAN, 2);
   }
 
   if (frame->src_addr) {

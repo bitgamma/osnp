@@ -39,7 +39,7 @@ struct ieee802_15_4_frame {
     unsigned char *src_pan;
     unsigned char *src_addr;
     unsigned char *sc;
-    unsigned long *frame_counter;
+    unsigned char *frame_counter;
     unsigned char *key_id;
     unsigned char *payload;
 };
