@@ -160,19 +160,3 @@ void osnp_initialize_response_frame(struct ieee802_15_4_frame *src_frame, struct
     memcpy(dst_frame->key_id, src_frame->key_id, (src_frame->payload - src_frame->key_id));
   }
 }
-
-unsigned long osnp_get_frame_counter(struct ieee802_15_4_frame *frame) {
-  unsigned long frame_counter = frame->frame_counter[0];
-  frame_counter = (frame_counter << 8) | frame->frame_counter[1];
-  frame_counter = (frame_counter << 8) | frame->frame_counter[2];
-  frame_counter = (frame_counter << 8) | frame->frame_counter[3];
-
-  return frame_counter;
-}
-
-void osnp_set_frame_counter(struct ieee802_15_4_frame *frame, unsigned long frame_counter) {
-  frame->frame_counter[0] = (frame_counter >> 24) & 0xff;
-  frame->frame_counter[1] = (frame_counter >> 16) & 0xff;
-  frame->frame_counter[2] = (frame_counter >> 8) & 0xff;
-  frame->frame_counter[3] = frame_counter & 0xff;
-}

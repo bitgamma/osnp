@@ -39,7 +39,7 @@ struct ieee802_15_4_frame {
     unsigned char *src_pan;
     unsigned char *src_addr;
     unsigned char *sc;
-    unsigned char *frame_counter;
+    unsigned long *frame_counter;
     unsigned char *key_id;
     unsigned char *payload;
 };
@@ -138,22 +138,6 @@ void osnp_initialize_frame(unsigned char fc_low, unsigned char fc_high, unsigned
  * @param dst_buf the backing buffer of the destination frame
  */
 void osnp_initialize_response_frame(struct ieee802_15_4_frame *src_frame, struct ieee802_15_4_frame *dst_frame, unsigned char *dst_buf);
-
-/**
- * Returns the frame counter from the security header. Does not check that a security header actually exists.
- * 
- * @param frame the frame
- * @return the frame counter
- */
-unsigned long osnp_get_frame_counter(struct ieee802_15_4_frame *frame);
-
-/**
- * Sets the frame counter in the security header. Does not check that a security header actually exists.
- *
- * @param frame the frame
- * @param frame_counter the frame counter to set
- */
-void osnp_set_frame_counter(struct ieee802_15_4_frame *frame, unsigned long frame_counter);
 
 #endif	/* OSNP_H */
 
