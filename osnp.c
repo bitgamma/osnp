@@ -75,7 +75,7 @@ unsigned char *_osnp_parse_basic_header(unsigned char *buf, struct ieee802_15_4_
 }
 
 unsigned char *_osnp_parse_security_header(unsigned char *buf, struct ieee802_15_4_frame *frame) {
-  if (EXTRACT_FCSECEN(*frame->fc_low)) {
+  if (EXTRACT_FCSECEN(*frame->fc_low) && EXTRACT_FCFRVER(*frame->fc_high)) {
     frame->sc = buf++;
     frame->frame_counter = buf;
     buf += 4;
