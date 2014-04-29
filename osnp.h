@@ -23,10 +23,6 @@
 #ifndef OSNP_H
 #define	OSNP_H
 
-extern unsigned char OSNP_PAN[];
-extern unsigned char OSNP_SHORT_ADDRESS[];
-extern unsigned char OSNP_EUI[];
-
 struct ieee802_15_4_frame {
     unsigned char *backing_buffer;
     unsigned int header_len;
@@ -103,6 +99,41 @@ struct ieee802_15_4_frame {
 /* Extraction Macro for Security Control Field */
 #define EXTRACT_SECLEV(x)	(x & 0x03)
 #define EXTRACT_KEYIDM(x)	((x >> 2) & 0x03)
+
+#define OSNP_MCMD_ASSOCIATION_REQ 0x01
+#define OSNP_MCMD_ASSOCIATION_RES 0x02
+#define OSNP_MCMD_DISASSOCIATED 0x03
+#define OSNP_MCMD_DISCOVER 0x07 // roughly equivalent to IEEE 802.15.4 "Beacon request"
+
+#define OSNP_TX_STATUS_OK 0
+#define OSNP_TX_STATUS_NOACK 1
+#define OSNP_TX_STATUS_CHANNEL_BUSY 2
+
+/**
+ * Initialize the OSNP state machine.
+ */
+void osnp_initialize(void);
+
+/**
+ * Enters the OSNP runloop.
+ */
+void osnp_enter_runloop(void);
+
+/**
+ * Callback on any OSNP-related timer interrupt.
+ */
+void osnp_timer_expired_cb(void);
+
+/** Callback on frame receive event */
+void osnp_frame_received_cb(unsigned char *frame_buf, int frame_len);
+
+/** Callback on frame receive event */
+void osnp_frame_sent_cb(unsigned char status);
+
+/**
+ * Polls the OSNP Hub asking if data is available.
+ */
+void osnp_poll(void);
 
 /**
  * Associates the given buffer to the frame and sets all pointers at the correct place for easy access to all fields

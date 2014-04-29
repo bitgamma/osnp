@@ -21,16 +21,156 @@
  */
 
 #include "osnp.h"
+#include "config.h"
 
 #include <stdlib.h>
 #include <string.h>
 
+#define SCANNING_CHANNELS 0
+#define WAITING_ASSOCIATION_REQUEST 1
+#define ASSOCIATED 2
 
-unsigned char OSNP_PAN[2] = { 0x00, 0x00 };
-unsigned char OSNP_SHORT_ADDRESS[2] = { 0x00, 0x00 };
-unsigned char OSNP_EUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static unsigned char OSNP_PAN_ID[2] = { 0x00, 0x00 };
+static unsigned char OSNP_SHORT_ADDRESS[2] = { 0x00, 0x00 };
+static unsigned char OSNP_EUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 static unsigned char seq_no;
+static unsigned char state;
+static unsigned char channel;
+
+void osnp_initialize(void) {
+  osnp_initialize_radio();
+
+  osnp_load_eui(OSNP_EUI);
+  osnp_load_pan_id(OSNP_PAN_ID);
+  osnp_load_short_address(OSNP_SHORT_ADDRESS);
+  osnp_load_channel(&channel);
+
+  seq_no = 0;
+
+  if (channel == 0xff) {
+    channel = 0;
+    state = SCANNING_CHANNELS;
+  } else {
+    state = ASSOCIATED;
+  }
+
+  osnp_switch_channel(channel);
+}
+
+void osnp_timer_expired_cb() {
+  switch(state) {
+    case SCANNING_CHANNELS:
+      channel = (channel + 1) % 16;
+      osnp_switch_channel(channel);
+      osnp_start_channel_scanning_timer();
+      break;
+    case WAITING_ASSOCIATION_REQUEST:
+      state = SCANNING_CHANNELS;
+      osnp_start_channel_scanning_timer();
+      break;
+    case ASSOCIATED:
+      osnp_poll();
+      osnp_start_poll_timer();
+      break;
+  }
+}
+
+void _osnp_handle_discovery_request(struct ieee802_15_4_frame *frame) {
+  //TODO: send discovery frame first!
+  
+  state = WAITING_ASSOCIATION_REQUEST;
+
+  if (state == SCANNING_CHANNELS) {
+    osnp_stop_channel_scanning_timer();
+  } else {
+    osnp_stop_association_wait_timer();
+  }
+  
+  osnp_start_association_wait_timer();
+}
+
+void _osnp_handle_association_request(struct ieee802_15_4_frame *frame) {
+  //TODO: handle association
+}
+
+_osnp_handle_disassociation_notification(struct ieee802_15_4_frame *frame) {
+  //TODO: verify security
+  OSNP_PAN_ID[0] = 0xff;
+  OSNP_PAN_ID[1] = 0xff;
+
+  OSNP_SHORT_ADDRESS[0] = 0xff;
+  OSNP_SHORT_ADDRESS[1] = 0xff;
+
+  osnp_write_pan_id(OSNP_PAN_ID);
+  osnp_write_short_address(OSNP_SHORT_ADDRESS);
+
+  channel = 0xff;
+  osnp_write_channel(&channel);
+  channel = 0;
+}
+
+
+void _osnp_mac_command_frame_received_cb(struct ieee802_15_4_frame *frame) {
+  if (state != ASSOCIATED) {
+    switch (frame->payload[0]) {
+      case OSNP_MCMD_DISCOVER:
+        _osnp_handle_discovery_request(frame);
+        break;
+      case OSNP_MCMD_ASSOCIATION_REQ:
+        _osnp_handle_association_request(frame);
+        break;
+    }
+  } else {
+    switch (frame->payload[0]) {
+      case OSNP_MCMD_DISASSOCIATED:
+        _osnp_handle_disassociation_notification(frame);
+        break;
+    }
+  }
+}
+
+
+void _osnp_data_frame_received_cb(struct ieee802_15_4_frame *frame) {
+
+}
+
+void osnp_frame_received_cb(unsigned char *frame_buf, int frame_len) {
+  struct ieee802_15_4_frame frame;
+  osnp_parse_frame(frame_buf, frame_len, &frame);
+
+  switch (EXTRACT_FCFRTYP(*frame.fc_low)) {
+    case FCFRTYP_DATA:
+      _osnp_data_frame_received_cb(&frame);
+      break;
+    case FCFRTYP_MCMD:
+      _osnp_mac_command_frame_received_cb(&frame);
+      break;
+  }
+}
+
+void osnp_frame_sent_cb(unsigned char status) {
+
+}
+
+void osnp_poll() {
+  //TODO: send a poll packet
+}
+
+void osnp_enter_runloop() {
+  while(1) {
+    switch(state) {
+    case SCANNING_CHANNELS:
+      osnp_start_channel_scanning_timer();
+      break;
+    case ASSOCIATED:
+      osnp_start_poll_timer();
+      break;
+    }
+
+    osnp_idle();
+  }
+}
 
 unsigned char *_osnp_parse_basic_header(unsigned char *buf, struct ieee802_15_4_frame *frame) {
   frame->backing_buffer = buf;
@@ -127,9 +267,9 @@ void osnp_initialize_frame(unsigned char fc_low, unsigned char fc_high, unsigned
   frame->payload_len = 0;
 
   if (frame->src_pan) {
-    memcpy(frame->src_pan, OSNP_PAN, 2);
+    memcpy(frame->src_pan, OSNP_PAN_ID, 2);
   } else if (frame->dst_pan && EXTRACT_FCPANCOMP(*frame->fc_low)) {
-    memcpy(frame->dst_pan, OSNP_PAN, 2);
+    memcpy(frame->dst_pan, OSNP_PAN_ID, 2);
   }
 
   if (frame->src_addr) {
