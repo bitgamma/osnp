@@ -130,8 +130,8 @@ void _osnp_handle_association_request(struct ieee802_15_4_frame *frame) {
 
 _osnp_handle_disassociation_notification(struct ieee802_15_4_frame *frame) {
   //TODO: security
-  OSNP_PAN_ID[0] = 0xff;
-  OSNP_PAN_ID[1] = 0xff;
+  OSNP_PAN_ID[0] = 0x00;
+  OSNP_PAN_ID[1] = 0x00;
 
   OSNP_SHORT_ADDRESS[0] = 0xff;
   OSNP_SHORT_ADDRESS[1] = 0xff;
