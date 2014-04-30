@@ -100,11 +100,27 @@ struct ieee802_15_4_frame {
 #define EXTRACT_SECLEV(x)	(x & 0x03)
 #define EXTRACT_KEYIDM(x)	((x >> 2) & 0x03)
 
+/* OSNP Commands */
+#define OSNP_GET_DEVICE_INFO 0xA0
+#define OSNP_CONFIGURE 0xA1
+#define OSNP_GET_DATA 0xA2
+#define OSNP_PERFORM 0xA3
+#define OSNP_SUBSCRIBE 0xA4
+#define OSNP_UNSUBSCRIBE 0xA5
+
+/* OSNP Errors */
+#define OSNP_UNSUPPORTED_COMMAND 0x01
+#define OSNP_UNSUPPORTED_PARAMETERS 0x02
+#define OSNP_SECURITY_ERROR 0x03
+#define OSNP_DEVICE_BUSY 0x04
+
+/* MAC Commands */
 #define OSNP_MCMD_ASSOCIATION_REQ 0x01
 #define OSNP_MCMD_ASSOCIATION_RES 0x02
 #define OSNP_MCMD_DISASSOCIATED 0x03
 #define OSNP_MCMD_DISCOVER 0x07 // roughly equivalent to IEEE 802.15.4 "Beacon request"
 
+/* Transmission Status */
 #define OSNP_TX_STATUS_OK 0
 #define OSNP_TX_STATUS_NOACK 1
 #define OSNP_TX_STATUS_CHANNEL_BUSY 2
@@ -113,11 +129,6 @@ struct ieee802_15_4_frame {
  * Initialize the OSNP state machine.
  */
 void osnp_initialize(void);
-
-/**
- * Enters the OSNP runloop.
- */
-void osnp_enter_runloop(void);
 
 /**
  * Callback on any OSNP-related timer interrupt.

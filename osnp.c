@@ -22,6 +22,7 @@
 
 #include "osnp.h"
 #include "config.h"
+#include "tlv.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +34,8 @@
 static unsigned char OSNP_PAN_ID[2] = { 0x00, 0x00 };
 static unsigned char OSNP_SHORT_ADDRESS[2] = { 0x00, 0x00 };
 static unsigned char OSNP_EUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+static unsigned char tx_frame_buf[128];
 
 static unsigned char seq_no;
 static unsigned char state;
@@ -51,8 +54,10 @@ void osnp_initialize(void) {
   if (channel == 0xff) {
     channel = 0;
     state = SCANNING_CHANNELS;
+    osnp_start_channel_scanning_timer();
   } else {
     state = ASSOCIATED;
+    osnp_start_poll_timer();
   }
 
   osnp_switch_channel(channel);
@@ -77,25 +82,54 @@ void osnp_timer_expired_cb() {
 }
 
 void _osnp_handle_discovery_request(struct ieee802_15_4_frame *frame) {
-  //TODO: send discovery frame first!
-  
-  state = WAITING_ASSOCIATION_REQUEST;
+  struct ieee802_15_4_frame tx_frame;
+  osnp_initialize_response_frame(frame, &tx_frame, tx_frame_buf);
+
+  tx_frame.payload[0] = OSNP_MCMD_DISCOVER;
+  tx_frame.payload_len = 1;
+
+  osnp_transmit_frame(&tx_frame);
 
   if (state == SCANNING_CHANNELS) {
     osnp_stop_channel_scanning_timer();
   } else {
     osnp_stop_association_wait_timer();
   }
+
+  state = WAITING_ASSOCIATION_REQUEST;
   
   osnp_start_association_wait_timer();
 }
 
 void _osnp_handle_association_request(struct ieee802_15_4_frame *frame) {
-  //TODO: handle association
+  //TODO: security
+  memcpy(OSNP_PAN_ID, frame->src_pan, 2);
+  memcpy(OSNP_SHORT_ADDRESS, &frame->payload[1], 2);
+  osnp_write_pan_id(OSNP_PAN_ID);
+  osnp_write_short_address(OSNP_SHORT_ADDRESS);
+  osnp_write_channel(&channel);
+  osnp_stop_channel_scanning_timer();
+
+  if (state == SCANNING_CHANNELS) {
+    osnp_stop_channel_scanning_timer();
+  } else {
+    osnp_stop_association_wait_timer();
+  }
+
+  state = ASSOCIATED;
+  osnp_start_poll_timer();
+
+  struct ieee802_15_4_frame tx_frame;
+  osnp_initialize_response_frame(frame, &tx_frame, tx_frame_buf);
+
+  tx_frame.payload[0] = OSNP_MCMD_ASSOCIATION_RES;
+  tx_frame.payload_len = 1;
+
+  osnp_transmit_frame(&tx_frame);
 }
 
 _osnp_handle_disassociation_notification(struct ieee802_15_4_frame *frame) {
-  //TODO: verify security
+  //TODO: security
   OSNP_PAN_ID[0] = 0xff;
   OSNP_PAN_ID[1] = 0xff;
 
@@ -108,6 +142,10 @@ _osnp_handle_disassociation_notification(struct ieee802_15_4_frame *frame) {
   channel = 0xff;
   osnp_write_channel(&channel);
   channel = 0;
+
+  state = SCANNING_CHANNELS;
+  osnp_stop_poll_timer();
+  osnp_start_channel_scanning_timer();
 }
 
 
@@ -130,9 +168,37 @@ void _osnp_mac_command_frame_received_cb(struct ieee802_15_4_frame *frame) {
   }
 }
 
-
 void _osnp_data_frame_received_cb(struct ieee802_15_4_frame *frame) {
+  //TODO: security
 
+  unsigned int i = 0;
+  unsigned int tag;
+  unsigned int end;
+  
+  i += tlv_read_tag(&frame->payload[i], &tag);
+  
+  if (tag != 0xE0) {
+    return;
+  }
+  
+  i += tlv_read_length(&frame->payload[i], &end);
+  end += i;
+
+  struct ieee802_15_4_frame tx_frame;
+  osnp_initialize_response_frame(frame, &tx_frame, tx_frame_buf);
+
+  unsigned int j = 0;
+  j += tlv_write_tag(&tx_frame.payload[j], 0xE1);
+  j += tlv_write_undefined_length(&tx_frame.payload[j]);
+
+  while(i < end) {
+    osnp_process_command(frame, &i, &tx_frame, &j, (state == ASSOCIATED));
+  }
+
+  j += tlv_write_undefined_length_terminator(&tx_frame.payload[j]);
+  tx_frame.payload_len = j;
+
+  osnp_transmit_frame(&tx_frame);
 }
 
 void osnp_frame_received_cb(unsigned char *frame_buf, int frame_len) {
@@ -150,26 +216,19 @@ void osnp_frame_received_cb(unsigned char *frame_buf, int frame_len) {
 }
 
 void osnp_frame_sent_cb(unsigned char status) {
-
+  //todo: add error handling
+  switch(status) {
+    case OSNP_TX_STATUS_OK:
+      break;
+    case OSNP_TX_STATUS_NOACK:
+      break;
+    case OSNP_TX_STATUS_CHANNEL_BUSY:
+      break;
+  }
 }
 
 void osnp_poll() {
   //TODO: send a poll packet
-}
-
-void osnp_enter_runloop() {
-  while(1) {
-    switch(state) {
-    case SCANNING_CHANNELS:
-      osnp_start_channel_scanning_timer();
-      break;
-    case ASSOCIATED:
-      osnp_start_poll_timer();
-      break;
-    }
-
-    osnp_idle();
-  }
 }
 
 unsigned char *_osnp_parse_basic_header(unsigned char *buf, struct ieee802_15_4_frame *frame) {
@@ -283,7 +342,14 @@ void osnp_initialize_frame(unsigned char fc_low, unsigned char fc_high, unsigned
 
 void osnp_initialize_response_frame(struct ieee802_15_4_frame *src_frame, struct ieee802_15_4_frame *dst_frame, unsigned char *dst_buf) {
   unsigned char fc_low = (*src_frame->fc_low & ~FCFRPEN) | FCREQACK;
-  unsigned char fc_high = ((*src_frame->fc_high & 0xC0) >> 4) | ((*src_frame->fc_high & 0x0C) << 4) | (*src_frame->fc_high & 0x30);
+  unsigned char fc_high = ((*src_frame->fc_high & 0xC0) >> 4) | (*src_frame->fc_high & 0x30);
+
+  if (state == ASSOCIATED) {
+    fc_low |= FCSRCADDR(FCADDR_SHORT);
+  } else {
+    fc_low |= FCSRCADDR(FCADDR_EXT);
+  }
+
   osnp_initialize_frame(fc_low, fc_high, *src_frame->sc, dst_buf, dst_frame);
   
   if (dst_frame->dst_pan) {
