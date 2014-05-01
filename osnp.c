@@ -32,9 +32,9 @@
 #define ASSOCIATED 2
 #define WAITING_PENDING_DATA 3
 
-static unsigned char OSNP_PAN_ID[2] = { 0x00, 0x00 };
-static unsigned char OSNP_SHORT_ADDRESS[2] = { 0x00, 0x00 };
-static unsigned char OSNP_EUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static unsigned char OSNP_PAN_ID[2];
+static unsigned char OSNP_SHORT_ADDRESS[2];
+static unsigned char OSNP_EUI[8];
 
 static unsigned char tx_frame_buf[128];
 
@@ -43,8 +43,6 @@ static unsigned char state;
 static unsigned char channel;
 
 void osnp_initialize(void) {
-  osnp_initialize_radio();
-
   osnp_load_eui(OSNP_EUI);
   osnp_load_pan_id(OSNP_PAN_ID);
   osnp_load_short_address(OSNP_SHORT_ADDRESS);
@@ -77,7 +75,7 @@ void osnp_timer_expired_cb() {
       break;
     case ASSOCIATED:
       osnp_poll();
-      osnp_start_poll_timer();
+      break;
     case WAITING_PENDING_DATA:
       state = ASSOCIATED;
       osnp_start_poll_timer();
@@ -96,7 +94,7 @@ void _osnp_handle_discovery_request(struct ieee802_15_4_frame *frame) {
 
   osnp_stop_active_timer();
 
-  state = WAITING_ASSOCIATION_REQUEST;  
+  osnp_start_association_wait_timer();
 }
 
 void _osnp_handle_association_request(struct ieee802_15_4_frame *frame) {
@@ -112,10 +110,14 @@ void _osnp_handle_association_request(struct ieee802_15_4_frame *frame) {
   state = ASSOCIATED;
 
   struct ieee802_15_4_frame tx_frame;
-  osnp_initialize_response_frame(frame, &tx_frame, tx_frame_buf);
+  
+  unsigned char fc_low = FCFRTYP(FCFRTYP_MCMD) | FCREQACK;
+  unsigned char fc_high = FCDSTADDR(FCADDR_NONE) | FCFRVER(0) | FCSRCADDR(FCADDR_SHORT);
 
+  osnp_initialize_frame(fc_low, fc_high, 0, tx_frame_buf, &tx_frame);
   tx_frame.payload[0] = OSNP_MCMD_ASSOCIATION_RES;
-  tx_frame.payload_len = 1;
+  tx_frame.payload[1] = OSNP_DEVICE_CAPABILITES;
+  tx_frame.payload_len = 2;
 
   osnp_transmit_frame(&tx_frame);
 }
@@ -137,6 +139,7 @@ _osnp_handle_disassociation_notification(struct ieee802_15_4_frame *frame) {
 
   state = SCANNING_CHANNELS;
   osnp_stop_active_timer();
+  osnp_start_channel_scanning_timer();
 }
 
 
@@ -196,6 +199,12 @@ void osnp_frame_received_cb(unsigned char *frame_buf, int frame_len) {
   struct ieee802_15_4_frame frame;
   osnp_parse_frame(frame_buf, frame_len, &frame);
 
+  if (state == SCANNING_CHANNELS) {
+    state = WAITING_ASSOCIATION_REQUEST;
+  } else if (state == ASSOCIATED && EXTRACT_FCFRPEN(*frame.fc_low)) {
+    state = WAITING_PENDING_DATA;
+  }
+  
   switch (EXTRACT_FCFRTYP(*frame.fc_low)) {
     case FCFRTYP_DATA:
       _osnp_data_frame_received_cb(&frame);
@@ -235,6 +244,9 @@ void osnp_poll() {
   unsigned char fc_high = FCDSTADDR(FCADDR_NONE) | FCFRVER(0) | FCSRCADDR(FCADDR_SHORT);
 
   osnp_initialize_frame(fc_low, fc_high, 0, tx_frame_buf, &tx_frame);
+  tx_frame.payload[0] = OSNP_MCMD_DATA_REQ;
+  tx_frame.payload_len = 1;
+  
   osnp_transmit_frame(&tx_frame);
 }
 
@@ -348,13 +360,13 @@ void osnp_initialize_frame(unsigned char fc_low, unsigned char fc_high, unsigned
 }
 
 void osnp_initialize_response_frame(struct ieee802_15_4_frame *src_frame, struct ieee802_15_4_frame *dst_frame, unsigned char *dst_buf) {
-  unsigned char fc_low = (*src_frame->fc_low & ~FCFRPEN) | FCREQACK;
+  unsigned char fc_low = (*src_frame->fc_low & ~FCFRPEN);
   unsigned char fc_high = ((*src_frame->fc_high & 0xC0) >> 4) | (*src_frame->fc_high & 0x30);
 
   if (state >= ASSOCIATED) {
-    fc_low |= FCSRCADDR(FCADDR_SHORT);
+    fc_high |= FCSRCADDR(FCADDR_SHORT);
   } else {
-    fc_low |= FCSRCADDR(FCADDR_EXT);
+    fc_high |= FCSRCADDR(FCADDR_EXT);
   }
 
   osnp_initialize_frame(fc_low, fc_high, *src_frame->sc, dst_buf, dst_frame);

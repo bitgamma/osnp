@@ -126,6 +126,10 @@ struct ieee802_15_4_frame {
 #define OSNP_TX_STATUS_NOACK 1
 #define OSNP_TX_STATUS_CHANNEL_BUSY 2
 
+/* Device Capabilities */
+#define RX_POLL_DRIVEN 0x00
+#define RX_ALWAYS_ON 0x01
+
 /**
  * Initialize the OSNP state machine.
  */
