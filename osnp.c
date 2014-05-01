@@ -30,6 +30,7 @@
 #define SCANNING_CHANNELS 0
 #define WAITING_ASSOCIATION_REQUEST 1
 #define ASSOCIATED 2
+#define WAITING_PENDING_DATA 3
 
 static unsigned char OSNP_PAN_ID[2] = { 0x00, 0x00 };
 static unsigned char OSNP_SHORT_ADDRESS[2] = { 0x00, 0x00 };
@@ -77,6 +78,9 @@ void osnp_timer_expired_cb() {
     case ASSOCIATED:
       osnp_poll();
       osnp_start_poll_timer();
+    case WAITING_PENDING_DATA:
+      state = ASSOCIATED;
+      osnp_start_poll_timer();
       break;
   }
 }
@@ -90,15 +94,9 @@ void _osnp_handle_discovery_request(struct ieee802_15_4_frame *frame) {
 
   osnp_transmit_frame(&tx_frame);
 
-  if (state == SCANNING_CHANNELS) {
-    osnp_stop_channel_scanning_timer();
-  } else {
-    osnp_stop_association_wait_timer();
-  }
+  osnp_stop_active_timer();
 
-  state = WAITING_ASSOCIATION_REQUEST;
-  
-  osnp_start_association_wait_timer();
+  state = WAITING_ASSOCIATION_REQUEST;  
 }
 
 void _osnp_handle_association_request(struct ieee802_15_4_frame *frame) {
@@ -108,16 +106,10 @@ void _osnp_handle_association_request(struct ieee802_15_4_frame *frame) {
   osnp_write_pan_id(OSNP_PAN_ID);
   osnp_write_short_address(OSNP_SHORT_ADDRESS);
   osnp_write_channel(&channel);
-  osnp_stop_channel_scanning_timer();
 
-  if (state == SCANNING_CHANNELS) {
-    osnp_stop_channel_scanning_timer();
-  } else {
-    osnp_stop_association_wait_timer();
-  }
+  osnp_stop_active_timer();
 
   state = ASSOCIATED;
-  osnp_start_poll_timer();
 
   struct ieee802_15_4_frame tx_frame;
   osnp_initialize_response_frame(frame, &tx_frame, tx_frame_buf);
@@ -144,13 +136,12 @@ _osnp_handle_disassociation_notification(struct ieee802_15_4_frame *frame) {
   channel = 0;
 
   state = SCANNING_CHANNELS;
-  osnp_stop_poll_timer();
-  osnp_start_channel_scanning_timer();
+  osnp_stop_active_timer();
 }
 
 
 void _osnp_mac_command_frame_received_cb(struct ieee802_15_4_frame *frame) {
-  if (state != ASSOCIATED) {
+  if (state < ASSOCIATED) {
     switch (frame->payload[0]) {
       case OSNP_MCMD_DISCOVER:
         _osnp_handle_discovery_request(frame);
@@ -192,7 +183,7 @@ void _osnp_data_frame_received_cb(struct ieee802_15_4_frame *frame) {
   j += tlv_write_undefined_length(&tx_frame.payload[j]);
 
   while(i < end) {
-    osnp_process_command(frame, &i, &tx_frame, &j, (state == ASSOCIATED));
+    osnp_process_command(frame, &i, &tx_frame, &j, (state >= ASSOCIATED));
   }
 
   j += tlv_write_undefined_length_terminator(&tx_frame.payload[j]);
@@ -217,18 +208,34 @@ void osnp_frame_received_cb(unsigned char *frame_buf, int frame_len) {
 
 void osnp_frame_sent_cb(unsigned char status) {
   //todo: add error handling
-  switch(status) {
-    case OSNP_TX_STATUS_OK:
+
+  switch(state) {
+    case SCANNING_CHANNELS:
+      osnp_start_channel_scanning_timer();
       break;
-    case OSNP_TX_STATUS_NOACK:
+    case WAITING_ASSOCIATION_REQUEST:
+      osnp_start_association_wait_timer();
       break;
-    case OSNP_TX_STATUS_CHANNEL_BUSY:
+    case ASSOCIATED:
+    case WAITING_PENDING_DATA:
+      if ((status == OSNP_TX_STATUS_OK) && osnp_get_pending_frames()) {
+        state = WAITING_PENDING_DATA;
+        osnp_start_pending_data_wait_timer();
+      } else {
+        state = ASSOCIATED;
+        osnp_start_poll_timer();
+      }
       break;
   }
 }
 
 void osnp_poll() {
-  //TODO: send a poll packet
+  struct ieee802_15_4_frame tx_frame;
+  unsigned char fc_low = FCFRTYP(FCFRTYP_MCMD) | FCREQACK;
+  unsigned char fc_high = FCDSTADDR(FCADDR_NONE) | FCFRVER(0) | FCSRCADDR(FCADDR_SHORT);
+
+  osnp_initialize_frame(fc_low, fc_high, 0, tx_frame_buf, &tx_frame);
+  osnp_transmit_frame(&tx_frame);
 }
 
 unsigned char *_osnp_parse_basic_header(unsigned char *buf, struct ieee802_15_4_frame *frame) {
@@ -344,7 +351,7 @@ void osnp_initialize_response_frame(struct ieee802_15_4_frame *src_frame, struct
   unsigned char fc_low = (*src_frame->fc_low & ~FCFRPEN) | FCREQACK;
   unsigned char fc_high = ((*src_frame->fc_high & 0xC0) >> 4) | (*src_frame->fc_high & 0x30);
 
-  if (state == ASSOCIATED) {
+  if (state >= ASSOCIATED) {
     fc_low |= FCSRCADDR(FCADDR_SHORT);
   } else {
     fc_low |= FCSRCADDR(FCADDR_EXT);

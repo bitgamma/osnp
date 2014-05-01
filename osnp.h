@@ -118,6 +118,7 @@ struct ieee802_15_4_frame {
 #define OSNP_MCMD_ASSOCIATION_REQ 0x01
 #define OSNP_MCMD_ASSOCIATION_RES 0x02
 #define OSNP_MCMD_DISASSOCIATED 0x03
+#define OSNP_MCMD_DATA_REQ 0x04
 #define OSNP_MCMD_DISCOVER 0x07 // roughly equivalent to IEEE 802.15.4 "Beacon request"
 
 /* Transmission Status */
