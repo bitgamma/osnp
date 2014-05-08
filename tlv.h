@@ -25,6 +25,9 @@
 #ifndef TLV_H
 #define	TLV_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
 /**
  * Reads the TLV tag in the buffer and stores it in the out_tag parameter.
  *
@@ -32,7 +35,7 @@
  * @param out_tag the output tag
  * @return the length, in bytes of the read tag
  */
-unsigned int tlv_read_tag(unsigned char *buf, unsigned int *out_tag);
+uint16_t tlv_read_tag(uint8_t *buf, uint16_t *out_tag);
 
 /**
  * Reads the TLV length in the buffer and stores it in the out_len parameter.
@@ -41,7 +44,7 @@ unsigned int tlv_read_tag(unsigned char *buf, unsigned int *out_tag);
  * @param out_len the output length
  * @return the length, in bytes of the read length
  */
-unsigned int tlv_read_length(unsigned char *buf, unsigned int *out_len);
+uint16_t tlv_read_length(uint8_t *buf, uint16_t *out_len);
 
 /**
  * Writes the given TLV tag in the given buffer.
@@ -50,7 +53,7 @@ unsigned int tlv_read_length(unsigned char *buf, unsigned int *out_len);
  * @param in_tag the tag to write
  * @return the length of the written tag
  */
-unsigned int tlv_write_tag(unsigned char *buf, unsigned int in_tag);
+uint16_t tlv_write_tag(uint8_t *buf, uint16_t in_tag);
 
 /**
  * Writes the given TLV length in the given buffer.
@@ -59,7 +62,7 @@ unsigned int tlv_write_tag(unsigned char *buf, unsigned int in_tag);
  * @param in_len the length to write
  * @return the length of the written length
  */
-unsigned int tlv_write_length(unsigned char *buf, unsigned int in_len);
+uint16_t tlv_write_length(uint8_t *buf, uint16_t in_len);
 
 /**
  * Writes the undefined length tag in the given buffer.
@@ -67,7 +70,7 @@ unsigned int tlv_write_length(unsigned char *buf, unsigned int in_len);
  * @param buf the buffer
  * @return the length of the written length
  */
-unsigned int tlv_write_undefined_length(unsigned char *buf);
+uint16_t tlv_write_undefined_length(uint8_t *buf);
 
 /**
  * Writes the terminator of the undefined length tag in the given buffer.
@@ -75,7 +78,7 @@ unsigned int tlv_write_undefined_length(unsigned char *buf);
  * @param buf the buffer
  * @return the length of the written length
  */
-unsigned int tlv_write_undefined_length_terminator(unsigned char *buf);
+uint16_t tlv_write_undefined_length_terminator(uint8_t *buf);
 
 #endif	/* TLV_H */
 

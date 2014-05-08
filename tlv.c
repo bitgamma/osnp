@@ -25,8 +25,8 @@
 #include "tlv.h"
 #include "config.h"
 
-unsigned int tlv_read_tag(unsigned char *buf, unsigned int *out_tag) {
-  unsigned int i = 0;
+uint16_t tlv_read_tag(uint8_t *buf, uint16_t *out_tag) {
+  uint16_t i = 0;
 
   *out_tag = buf[i++];
 
@@ -39,12 +39,12 @@ unsigned int tlv_read_tag(unsigned char *buf, unsigned int *out_tag) {
   return i;
 }
 
-unsigned int tlv_read_length(unsigned char *buf, unsigned int *out_len) {
-  unsigned int i = 0;
+uint16_t tlv_read_length(uint8_t *buf, uint16_t *out_len) {
+  uint16_t i = 0;
   *out_len = buf[i++];
 
   if (*out_len > 0x7f) {
-    unsigned int lenOfLen = *out_len & 0x7f;
+    uint16_t lenOfLen = *out_len & 0x7f;
     *out_len = 0;
 
     while(lenOfLen--) {
@@ -55,9 +55,9 @@ unsigned int tlv_read_length(unsigned char *buf, unsigned int *out_len) {
   return i;
 }
 
-unsigned int tlv_write_tag(unsigned char *buf, unsigned int in_tag) {
-  int max_shift = (sizeof(unsigned int) - 1) * 8;
-  unsigned int i = 0;
+uint16_t tlv_write_tag(uint8_t *buf, uint16_t in_tag) {
+  int max_shift = (sizeof(uint16_t) - 1) * 8;
+  uint16_t i = 0;
 
   while((in_tag >> max_shift) == 0x00) {
     max_shift -= 8;
@@ -71,48 +71,30 @@ unsigned int tlv_write_tag(unsigned char *buf, unsigned int in_tag) {
   return i;
 }
 
-unsigned int tlv_write_length(unsigned char *buf, unsigned int in_len) {
-  unsigned int i = 0;
+uint16_t tlv_write_length(uint8_t *buf, uint16_t in_len) {
+  uint16_t i = 0;
 
   if (in_len <= 0x7f) {
     buf[i++] = in_len;
   } else if (in_len <= 0xff) {
     buf[i++] = 0x81;
     buf[i++] = in_len;
-  } else 
-#ifndef TLV_MAX_INT_16_BIT    
-  if (in_len <= 0xffff)
-#endif
-  {
+  } else {
     buf[i++] = 0x82;
     buf[i++] = in_len >> 8;
     buf[i++] = in_len & 0xff;
-  } 
-#ifdef TLV_MAX_INT_32_BIT
-    else if (in_len <= 0xffff) {
-    buf[i++] = 0x83;
-    buf[i++] = in_len >> 16;
-    buf[i++] = (in_len >> 8) & 0xff;
-    buf[i++] = in_len & 0xff;
-  } else {
-    buf[i++] = 0x84;
-    buf[i++] = (in_len >> 24) & 0xff;
-    buf[i++] = (in_len >> 16) & 0xff;
-    buf[i++] = (in_len >> 8) & 0xff;
-    buf[i++] = in_len & 0xff;
   }
-#endif
 
   return i;
 }
 
-unsigned int tlv_write_undefined_length(unsigned char *buf) {
+uint16_t tlv_write_undefined_length(uint8_t *buf) {
   buf[0] = 0x80;
   
   return 1;
 }
 
-unsigned int tlv_write_undefined_length_terminator(unsigned char *buf) {
+uint16_t tlv_write_undefined_length_terminator(uint8_t *buf) {
   buf[0] = 0x00;
   buf[1] = 0x00;
 

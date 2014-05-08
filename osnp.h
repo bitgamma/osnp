@@ -23,23 +23,25 @@
 #ifndef OSNP_H
 #define	OSNP_H
 
-struct ieee802_15_4_frame {
-    unsigned char *backing_buffer;
-    unsigned int header_len;
-    unsigned int payload_len;
-    unsigned char *fc_low;
-    unsigned char *fc_high;
-    unsigned char *seq_no;
-    unsigned char *dst_pan;
-    unsigned char *dst_addr;
-    unsigned char *src_pan;
-    unsigned char *src_addr;
-    unsigned char *sc;
-    unsigned char *frame_counter;
-    unsigned char *key_id;
-    unsigned char *payload;
-};
+#include <stdint.h>
+#include <stdbool.h>
 
+typedef struct {
+    uint8_t *backing_buffer;
+    uint16_t header_len;
+    uint16_t sec_header_len;
+    uint16_t payload_len;
+    uint8_t *fc_low;
+    uint8_t *fc_high;
+    uint8_t *seq_no;
+    uint8_t *dst_pan;
+    uint8_t *dst_addr;
+    uint8_t *src_pan;
+    uint8_t *src_addr;
+    uint8_t *frame_counter;
+    uint8_t *key_counter;
+    uint8_t *payload;
+} ieee802_15_4_frame_t;
 
 /* Frame type */
 #define FCFRTYP_BEACON	0x00
@@ -53,7 +55,6 @@ struct ieee802_15_4_frame {
 #define FCADDR_EXT	0x03
 
 /* Security Level */
-#define SL_NONE         0x00
 #define SL_MIC_32       0x01
 #define SL_MIC_64       0x02
 #define SL_MIC_128      0x03
@@ -61,12 +62,6 @@ struct ieee802_15_4_frame {
 #define SL_ENC_MIC_32   0x05
 #define SL_ENC_MIC_64   0x06
 #define SL_ENC_MIC_128  0x07
-
-/* Key Identifier */
-#define KIM_IMPLICIT    0x00
-#define KIM_1IDX        0x01
-#define KIM_4SRC_1IDX   0x02
-#define KIM_8SRC_1IDX   0x03
 
 /* Frame Control Low bits */
 #define FCFRTYP(x)	(x & 0x07)
@@ -80,10 +75,6 @@ struct ieee802_15_4_frame {
 #define FCFRVER(x)	((x & 0x03) << 4)
 #define FCSRCADDR(x)    ((x & 0x03) << 6)
 
-/* Security Control Field */
-#define SECLEV(x)	(x & 0x03)
-#define KEYIDM(x)	((x & 0x03) << 2)
-
 /* Extraction Macro for Frame Control Low bits */
 #define EXTRACT_FCFRTYP(x)      (x & 0x07)
 #define EXTRACT_FCSECEN(x)      ((x >> 3) & 0x01)
@@ -93,7 +84,7 @@ struct ieee802_15_4_frame {
 
 /* Extraction Macro for Frame Control High bits */
 #define EXTRACT_FCDSTADDR(x)	((x >> 2) & 0x03)
-#define EXTRACT_FCFRVER(x)	((x >> 4) & 0x03)
+//#define EXTRACT_FCFRVER(x)	((x >> 4) & 0x03)
 #define EXTRACT_FCSRCADDR(x)    ((x >> 6) & 0x03)
 
 /* Extraction Macro for Security Control Field */
@@ -120,6 +111,9 @@ struct ieee802_15_4_frame {
 #define OSNP_MCMD_DISASSOCIATED 0x03
 #define OSNP_MCMD_DATA_REQ 0x04
 #define OSNP_MCMD_DISCOVER 0x07 // roughly equivalent to IEEE 802.15.4 "Beacon request"
+#define OSNP_MCMD_KEY_UPDATE_REQ 0x80
+#define OSNP_MCMD_KEY_UPDATE_RES 0x81
+#define OSNP_MCMD_FRAME_COUNTER_ALIGN 0x82
 
 /* Transmission Status */
 #define OSNP_TX_STATUS_OK 0
@@ -141,10 +135,10 @@ void osnp_initialize(void);
 void osnp_timer_expired_cb(void);
 
 /** Callback on frame receive event */
-void osnp_frame_received_cb(unsigned char *frame_buf, int frame_len);
+void osnp_frame_received_cb(uint8_t *frame_buf, int16_t frame_len);
 
 /** Callback on frame receive event */
-void osnp_frame_sent_cb(unsigned char status);
+void osnp_frame_sent_cb(uint8_t status);
 
 /**
  * Polls the OSNP Hub asking if data is available.
@@ -159,13 +153,12 @@ void osnp_poll(void);
  * @param frame_len the total len of the received frame
  * @param frame a zero'ed frame structure
  */
-void osnp_parse_frame(unsigned char *buf, unsigned int frame_len, struct ieee802_15_4_frame *frame);
+void osnp_parse_frame(uint8_t *buf, uint16_t frame_len, ieee802_15_4_frame_t *frame);
 
 /**
  * Initializes the frame with the given frame control and security control parameters. This sets all pointers
- * at the correct place according the Frame Control and Security Control bytes. It also sets the sequence counter,
- * and the source address according to the Source Addressing Mode using the OSNP_PAN, OSNP_SHORT_ADDRESS and OSNP_EUI
- * variables as needed.
+ * at the correct place according the Frame Control bytes. It also sets the sequence counter, and the source
+ * address according to the Source Addressing Mode using the OSNP_PAN, OSNP_SHORT_ADDRESS and OSNP_EUI variables as needed.
  * 
  * @param fc_low The low byte of the control frame
  * @param fc_high The high byte of the control frame
@@ -173,7 +166,7 @@ void osnp_parse_frame(unsigned char *buf, unsigned int frame_len, struct ieee802
  * @param buf The buffer backing this frame
  * @param frame The frame to initialize
  */
-void osnp_initialize_frame(unsigned char fc_low, unsigned char fc_high, unsigned char sc, unsigned char *buf, struct ieee802_15_4_frame *frame);
+void osnp_initialize_frame(uint8_t fc_low, uint8_t fc_high, uint8_t *buf, ieee802_15_4_frame_t *frame);
 
 /**
  * Initializes the destination frame as a response to the source frame. This means copying most of the header, but the source becomes the destination
@@ -184,7 +177,7 @@ void osnp_initialize_frame(unsigned char fc_low, unsigned char fc_high, unsigned
  * @param dst_frame the destination frame
  * @param dst_buf the backing buffer of the destination frame
  */
-void osnp_initialize_response_frame(struct ieee802_15_4_frame *src_frame, struct ieee802_15_4_frame *dst_frame, unsigned char *dst_buf);
+void osnp_initialize_response_frame(ieee802_15_4_frame_t *src_frame, ieee802_15_4_frame_t *dst_frame, uint8_t *dst_buf);
 
 #endif	/* OSNP_H */
 
