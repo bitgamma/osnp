@@ -316,6 +316,8 @@ void osnp_frame_sent_cb(uint8_t status) {
     case WAITING_PENDING_DATA:
       if ((status == OSNP_TX_STATUS_OK) && osnp_get_pending_frames()) {
         state = WAITING_PENDING_DATA;
+        osnp_load_rx_key(tx_frame_buf);
+        osnp_load_tx_key(tx_frame_buf);
         osnp_start_pending_data_wait_timer();
       } else {
         state = ASSOCIATED;
