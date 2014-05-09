@@ -51,6 +51,7 @@ static uint32_t tx_saved_frame_counter;
 void osnp_initialize(void) {
   osnp_load_eui(OSNP_EUI);
   osnp_load_pan_id(OSNP_PAN_ID);
+  osnp_load_short_address(tx_frame_buf);
   osnp_load_channel(&channel);
 
   seq_no = 0;
@@ -160,6 +161,8 @@ void _osnp_handle_association_request(ieee802_15_4_frame_t *frame) {
   osnp_write_channel(&channel);
 
   _osnp_reset_security(frame);
+
+  osnp_write_short_address(&frame->payload[33]);
 
   osnp_stop_active_timer();
 
