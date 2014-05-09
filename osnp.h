@@ -55,13 +55,14 @@ typedef struct {
 #define FCADDR_EXT	0x03
 
 /* Security Level */
-#define SL_MIC_32       0x01
-#define SL_MIC_64       0x02
-#define SL_MIC_128      0x03
-#define SL_ENC          0x04
-#define SL_ENC_MIC_32   0x05
-#define SL_ENC_MIC_64   0x06
-#define SL_ENC_MIC_128  0x07
+#define SL_NONE             0x00
+#define SL_AES_CTR          0x01
+#define SL_AES_CCM_128      0x02
+#define SL_AES_CCM_64       0x03
+#define SL_AES_CCM_32       0x04
+#define SL_AES_CBC_MAC_128  0x05
+#define SL_AES_CBC_MAC_64   0x06
+#define SL_AES_CBC_MAC_32   0x07
 
 /* Frame Control Low bits */
 #define FCFRTYP(x)	(x & 0x07)
