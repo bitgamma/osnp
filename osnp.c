@@ -190,6 +190,11 @@ _osnp_handle_disassociation_notification() {
   osnp_write_pan_id(OSNP_PAN_ID);
   osnp_load_master_key(tx_frame_buf);
 
+  tx_frame_buf[0] = 0xff;
+  tx_frame_buf[1] = 0xff;
+
+  osnp_write_short_address(tx_frame_buf);
+
   channel = 0xff;
   osnp_write_channel(&channel);
   channel = 0;
