@@ -139,7 +139,10 @@ void _osnp_send_frame_counter(ieee802_15_4_frame_t *frame) {
   uint32_t expected_counter = rx_frame_counter + 1;
 
   ieee802_15_4_frame_t tx_frame;
-  osnp_initialize_response_frame(frame, &tx_frame, tx_frame_buf);
+  uint8_t fc_low = FCFRTYP(FCFRTYP_MCMD) | FCREQACK | FCSECEN;
+  uint8_t fc_high = FCDSTADDR(FCADDR_NONE) | FCSRCADDR(FCADDR_EXT);
+
+  osnp_initialize_frame(fc_low, fc_high, tx_frame_buf, &tx_frame);
   tx_frame.payload[0] = OSNP_MCMD_FRAME_COUNTER_ALIGN;
 
 #ifdef LITTLE_ENDIAN
