@@ -468,7 +468,7 @@ void osnp_initialize_frame(uint8_t fc_low, uint8_t fc_high, uint8_t *buf, ieee80
 }
 
 void osnp_initialize_response_frame(ieee802_15_4_frame_t *src_frame, ieee802_15_4_frame_t *dst_frame, uint8_t *dst_buf) {
-  uint8_t fc_low = (*src_frame->fc_low & ~FCFRPEN);
+  uint8_t fc_low = (*src_frame->fc_low & ~(FCFRPEN | FCPANCOMP));
   uint8_t fc_high = FCSRCADDR(FCADDR_EXT);
 
   if (state >= ASSOCIATED) {
