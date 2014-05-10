@@ -34,6 +34,7 @@
 #define WAITING_PENDING_DATA 3
 
 static uint8_t OSNP_PAN_ID[2];
+static uint8_t OSNP_SHORT_ADDRESS[2];
 static uint8_t OSNP_EUI[8];
 
 static uint8_t tx_frame_buf[128];
@@ -51,7 +52,7 @@ static uint32_t tx_saved_frame_counter;
 void osnp_initialize(void) {
   osnp_load_eui(OSNP_EUI);
   osnp_load_pan_id(OSNP_PAN_ID);
-  osnp_load_short_address(tx_frame_buf);
+  osnp_load_short_address(OSNP_SHORT_ADDRESS);
   osnp_load_channel(&channel);
 
   seq_no = 0;
@@ -155,6 +156,21 @@ void _osnp_send_frame_counter(ieee802_15_4_frame_t *frame) {
   osnp_transmit_frame(&tx_frame);
 }
 
+void _osnp_handle_frame_cointer_align(ieee802_15_4_frame_t *frame) {
+    uint32_t new_tx_frame_counter;
+#ifdef LITTLE_ENDIAN
+    new_tx_frame_counter = *((uint32_t *) &frame->payload[1]);
+#else
+    new_tx_frame_counter = frame.payload[4] << 24 | frame.payload[3] << 16 | frame.payload[2] << 8 | frame.payload[1];
+#endif
+
+    if (new_tx_frame_counter > tx_frame_counter) {
+      tx_frame_counter = new_tx_frame_counter;
+      tx_saved_frame_counter = tx_frame_counter + OSNP_FRAME_COUNTER_WINDOW;
+      osnp_write_tx_frame_counter((uint8_t *) &tx_saved_frame_counter);
+    }
+}
+
 void _osnp_handle_association_request(ieee802_15_4_frame_t *frame) {
   memcpy(OSNP_PAN_ID, frame->src_pan, 2);
   osnp_write_pan_id(OSNP_PAN_ID);
@@ -162,7 +178,9 @@ void _osnp_handle_association_request(ieee802_15_4_frame_t *frame) {
 
   _osnp_reset_security(frame);
 
-  osnp_write_short_address(&frame->payload[33]);
+  memcpy(OSNP_SHORT_ADDRESS, &frame->payload[33], 2);
+
+  osnp_write_short_address(OSNP_SHORT_ADDRESS);
 
   osnp_stop_active_timer();
 
@@ -190,10 +208,10 @@ _osnp_handle_disassociation_notification() {
   osnp_write_pan_id(OSNP_PAN_ID);
   osnp_load_master_key(tx_frame_buf);
 
-  tx_frame_buf[0] = 0xff;
-  tx_frame_buf[1] = 0xff;
+  OSNP_SHORT_ADDRESS[0] = 0xff;
+  OSNP_SHORT_ADDRESS[1] = 0xff;
 
-  osnp_write_short_address(tx_frame_buf);
+  osnp_write_short_address(OSNP_SHORT_ADDRESS);
 
   channel = 0xff;
   osnp_write_channel(&channel);
@@ -212,6 +230,9 @@ void _osnp_mac_command_frame_received_cb(ieee802_15_4_frame_t *frame) {
         break;
       case OSNP_MCMD_ASSOCIATION_REQ:
         _osnp_handle_association_request(frame);
+        break;
+      case OSNP_MCMD_FRAME_COUNTER_ALIGN:
+        _osnp_handle_frame_cointer_align(frame);
         break;
     }
   } else {
@@ -277,7 +298,7 @@ void osnp_frame_received_cb(uint8_t *frame_buf, int16_t frame_len) {
 #ifdef LITTLE_ENDIAN
     current_frame_counter = *((uint32_t *) frame.frame_counter);
 #else
-    current_frame_counter = frame.frame_counter[3] << 24 | frame.frame_counter[2] << 16 | frame.frame_counter[1] << 8 frame.frame_counter[0];
+    current_frame_counter = frame.frame_counter[3] << 24 | frame.frame_counter[2] << 16 | frame.frame_counter[1] << 8 | frame.frame_counter[0];
 #endif
 
     if (current_frame_counter <= rx_frame_counter) {
@@ -330,7 +351,7 @@ void osnp_frame_sent_cb(uint8_t status) {
 void osnp_poll() {
   ieee802_15_4_frame_t tx_frame;
   uint8_t fc_low = FCFRTYP(FCFRTYP_MCMD) | FCREQACK;
-  uint8_t fc_high = FCDSTADDR(FCADDR_NONE) | FCSRCADDR(FCADDR_EXT);
+  uint8_t fc_high = FCDSTADDR(FCADDR_NONE) | FCSRCADDR(FCADDR_SHORT);
 
   osnp_initialize_frame(fc_low, fc_high, tx_frame_buf, &tx_frame);
   tx_frame.payload[0] = OSNP_MCMD_DATA_REQ;
@@ -419,7 +440,11 @@ void osnp_initialize_frame(uint8_t fc_low, uint8_t fc_high, uint8_t *buf, ieee80
   }
 
   if (frame->src_addr) {
-    memcpy(frame->src_addr, OSNP_EUI, 8);
+    if (EXTRACT_FCSRCADDR(*frame->fc_high) == FCADDR_SHORT) {
+      memcpy(frame->src_addr, OSNP_SHORT_ADDRESS, 2);
+    } else {
+      memcpy(frame->src_addr, OSNP_EUI, 8);
+    }
   }
 
   if (EXTRACT_FCSECEN(*frame->fc_low)) {
