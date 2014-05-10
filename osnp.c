@@ -156,7 +156,7 @@ void _osnp_send_frame_counter(ieee802_15_4_frame_t *frame) {
   osnp_transmit_frame(&tx_frame);
 }
 
-void _osnp_handle_frame_cointer_align(ieee802_15_4_frame_t *frame) {
+void _osnp_handle_frame_counter_align(ieee802_15_4_frame_t *frame) {
     uint32_t new_tx_frame_counter;
 #ifdef LITTLE_ENDIAN
     new_tx_frame_counter = *((uint32_t *) &frame->payload[1]);
@@ -231,14 +231,14 @@ void _osnp_mac_command_frame_received_cb(ieee802_15_4_frame_t *frame) {
       case OSNP_MCMD_ASSOCIATION_REQ:
         _osnp_handle_association_request(frame);
         break;
-      case OSNP_MCMD_FRAME_COUNTER_ALIGN:
-        _osnp_handle_frame_cointer_align(frame);
-        break;
     }
   } else {
     switch (frame->payload[0]) {
       case OSNP_MCMD_DISASSOCIATED:
         _osnp_handle_disassociation_notification();
+        break;
+      case OSNP_MCMD_FRAME_COUNTER_ALIGN:
+        _osnp_handle_frame_counter_align(frame);
         break;
       case OSNP_MCMD_KEY_UPDATE_REQ:
         _osnp_handle_key_update(frame);
@@ -469,10 +469,12 @@ void osnp_initialize_frame(uint8_t fc_low, uint8_t fc_high, uint8_t *buf, ieee80
 
 void osnp_initialize_response_frame(ieee802_15_4_frame_t *src_frame, ieee802_15_4_frame_t *dst_frame, uint8_t *dst_buf) {
   uint8_t fc_low = (*src_frame->fc_low & ~FCFRPEN);
-  uint8_t fc_high = ((*src_frame->fc_high & 0xC0) >> 4) | (*src_frame->fc_high & 0x30) | FCSRCADDR(FCADDR_EXT);
+  uint8_t fc_high = FCSRCADDR(FCADDR_EXT);
 
   if (state >= ASSOCIATED) {
     fc_low |= FCSECEN;
+  } else {
+    fc_high |= ((*src_frame->fc_high & 0xC0) >> 4);
   }
 
   osnp_initialize_frame(fc_low, fc_high, dst_buf, dst_frame);
