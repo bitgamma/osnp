@@ -28,6 +28,7 @@ Currently the most important protocol features are already implemented. This inc
 * Security (Integrity + Authentication + Confidentiality + Replay protection)
 * Power saving operating modes (Data polling)
 * Command/Response handling
+* BER-TLV parser and encoder
 
 Notably, notifications are still missing, but they are trivial to implement and will be implemented as soon as a device using them is specified or as soon as there is nothing else more urgent to do.
 
@@ -42,3 +43,17 @@ If you want to make your own OSNP-compatible device, first read the [specificati
 Then you can download the example project, [Gradusnik](https://github.com/briksoftware/gradusnik), an OSNP-compatible thermometer. Follow there the instruction on how to compile or just use it as the base to develop your own device.
 
 Although the example project is PIC18 based, the stack and the radio driver do not use any PIC-specific code and should be usable on any platform with a C compiler.
+
+## Key architectural concepts
+
+The high-level network architecture of OSNP is a star-network, where a hub controls all associated devices and has the ability to discover new ones. Devices never speak to each other, only with the hub, which knows what to do with them and how to communicate with them. The devices can be anything ranging from sensors (temperature, moisture, etc) to remote-controlled switches, control panels, water pumps, HVAC.
+
+For this hub to be useful, it should of course act as an application server with virtual appliances controlling one or more devices according to their functionality. Virtual appliances could be anything from plant irrigation systems (controlling water pumps in relation to time, moisture sensors, temperature sensors, etc) to HVAC control systems.
+
+We are developing such a hub with project [Uzel](https://github.com/briksoftware/uzel).
+
+The important thing is that all OSNP-compatible devices have a specific device type (and can be composed of sub-devices if they provide functions from more than one category) and they must communicate using exactly the same way, so an appliance using temperature sensors can work with any OSNP-compatible temperature sensor, regardless of the manufacturer.
+
+To achieve this level of interoperability the application level protocol is very flexible and allows devices to declare their capabilities allowing them to implement only a subset of what is defined for a specific category. It also is very robust in relation to addition of new features because being based on ASN.1 (BER-TLV) encoding it does not rely on fixed field sequences or even fixed length fields.
+
+The specifications for each device type will also be published here and any addition proposed by the community will be evaluated and added.
