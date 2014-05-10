@@ -120,7 +120,7 @@ void _osnp_reset_security(ieee802_15_4_frame_t *frame) {
   tx_frame_counter = 0x00;
   tx_saved_frame_counter = OSNP_FRAME_COUNTER_WINDOW;
 
-  osnp_write_rx_frame_counter((uint8_t *) & rx_saved_frame_counter);
+  osnp_write_rx_frame_counter((uint8_t *) &rx_saved_frame_counter);
   osnp_write_tx_frame_counter((uint8_t *) &tx_saved_frame_counter);
 }
 
@@ -311,7 +311,7 @@ void osnp_frame_received_cb(uint8_t *frame_buf, int16_t frame_len) {
       rx_frame_counter = current_frame_counter;
       if (rx_frame_counter >= rx_saved_frame_counter) {
         rx_saved_frame_counter += OSNP_FRAME_COUNTER_WINDOW;
-        osnp_write_rx_frame_counter((uint8_t *) & rx_saved_frame_counter);
+        osnp_write_rx_frame_counter((uint8_t *) &rx_saved_frame_counter);
       }
     }
   }
