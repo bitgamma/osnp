@@ -6,7 +6,7 @@ This stack defines the application layer which is transport agnostic and device 
 
 Currently we are working on a transport protocol based on IEEE 802.15.4. This repository contains a C implementation of this transport protocol which is being developed using PIC18 as development target, but should be pretty much platform-agnostic.
 
-The protocol specifications and API document of this implementation are open an can be accesed from the [project Wiki](https://github.com/briksoftware/osnp/wiki)
+The protocol specifications and API document of this implementation are open an can be accesed from the [project wiki](https://github.com/briksoftware/osnp/wiki).
 
 ## Goals
 **In short:** 
