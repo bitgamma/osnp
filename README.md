@@ -28,9 +28,8 @@ Currently the most important protocol features are already implemented. This inc
 * Security (Integrity + Authentication + Confidentiality + Replay protection)
 * Power saving operating modes (Data polling)
 * Command/Response handling
+* Notifications
 * BER-TLV parser and encoder
-
-Notably, notifications are still missing, but they are trivial to implement and will be implemented as soon as a device using them is specified or as soon as there is nothing else more urgent to do.
 
 The entire protocol stack is very small and can be used on 8-bit microcontroller with 16k program memory, at least 512 bytes of RAM and optionally (but recommended) a 128-byte EEPROM.
 
