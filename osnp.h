@@ -147,6 +147,12 @@ void osnp_frame_sent_cb(uint8_t status);
 void osnp_poll(void);
 
 /**
+ * Constructs and send a notification. It will invoke osnp_build_notification callback to fill the
+ * actual notification body
+ */
+void osnp_send_notification(void);
+
+/**
  * Associates the given buffer to the frame and sets all pointers at the correct place for easy access to all fields
  * of the frame. No data is copied.
  *

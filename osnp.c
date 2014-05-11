@@ -363,6 +363,29 @@ void osnp_poll() {
   osnp_transmit_frame(&tx_frame);
 }
 
+void osnp_send_notification(void) {
+  if (state < ASSOCIATED) {
+    return;
+  }
+
+  ieee802_15_4_frame_t tx_frame;
+  uint8_t fc_low = FCFRTYP(FCFRTYP_DATA) | FCREQACK;
+  uint8_t fc_high = FCDSTADDR(FCADDR_NONE) | FCSRCADDR(FCADDR_EXT);
+
+  osnp_initialize_frame(fc_low, fc_high, tx_frame_buf, &tx_frame);
+
+  uint16_t j = 0;
+  j += tlv_write_tag(&tx_frame.payload[j], 0xE2);
+  j += tlv_write_undefined_length(&tx_frame.payload[j]);
+
+  osnp_build_notification(&tx_frame, &j);
+
+  j += tlv_write_undefined_length_terminator(&tx_frame.payload[j]);
+  tx_frame.payload_len = j;
+
+  osnp_transmit_frame(&tx_frame);
+}
+
 uint8_t *_osnp_parse_header(uint8_t *buf, ieee802_15_4_frame_t *frame) {
   frame->backing_buffer = buf;
   frame->fc_low = buf++;
