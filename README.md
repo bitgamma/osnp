@@ -33,7 +33,7 @@ Currently the most important protocol features are already implemented. This inc
 
 The entire protocol stack is very small and can be used on 8-bit microcontroller with 16k program memory, at least 512 bytes of RAM and optionally (but recommended) a 128-byte EEPROM.
 
-The example project, [Gradusnik](https://github.com/briksoftware/gradusnik) is just above 9k when compiled with xc8 (Pro) for the PIC18F14K50 and includes the OSNP-stack, the MRF24J40 driver and the device-specific logic.
+The example project, [Gradusnik](https://github.com/briksoftware/gradusnik) is just above 9k when compiled with xc8 (Pro) for the PIC18LF24K22 and includes the OSNP-stack, the MRF24J40 driver and the device-specific logic.
 
 ## Getting started
 
